@@ -1,0 +1,33 @@
+server:
+  port: 8085
+
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:9999/eureka/
+    enabled: false
+
+spring:
+  application:
+    name: wayd-image
+  webflux:
+    base-path: /image-service-api
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50KB
+
+jwt:
+  secret: very-secret-key
+
+wayd:
+  kafka:
+    address: localhost:9092
+    groupId: event
+    producer:
+      id: event-producer
+  image:
+    base-path: images
+    max-size: 2000
+    small-max-size: 200
