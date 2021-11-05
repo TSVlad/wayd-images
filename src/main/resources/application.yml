@@ -29,5 +29,5 @@ wayd:
       id: event-producer
   image:
     base-path: images
-    max-size: 2000
+    max-size: 1000
     small-max-size: 200
