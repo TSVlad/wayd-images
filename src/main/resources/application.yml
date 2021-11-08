@@ -28,6 +28,11 @@ wayd:
     producer:
       id: event-producer
   image:
-    base-path: images
+    bucket: images
     max-size: 1000
     small-max-size: 200
+
+minio:
+  username: admin
+  password: password
+  host: http://localhost:9000

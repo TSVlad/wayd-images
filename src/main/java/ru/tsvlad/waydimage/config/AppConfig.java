@@ -1,21 +1,22 @@
 package ru.tsvlad.waydimage.config;
 
-import org.springframework.beans.factory.annotation.Value;
+import io.minio.MinioClient;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.web.reactive.function.server.RouterFunction;
-import org.springframework.web.reactive.function.server.RouterFunctions;
-import org.springframework.web.reactive.function.server.ServerResponse;
+import ru.tsvlad.waydimage.config.props.MinioProperties;
 
 @Configuration
+@RequiredArgsConstructor
 public class AppConfig {
+    private final MinioProperties minioProperties;
 
-    @Value("${wayd.image.base-path}")
-    String imageBasePath;
 
     @Bean
-    RouterFunction<ServerResponse> staticResourceRouter() {
-        return RouterFunctions.resources("/images/**", new FileSystemResource(imageBasePath + "/"));
+    MinioClient minioClient() {
+        return MinioClient.builder()
+                .endpoint(minioProperties.getHost())
+                .credentials(minioProperties.getUsername(), minioProperties.getPassword())
+                .build();
     }
 }

@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Builder
 @Data
-public class ImagePathsDTO {
-    private String path;
-    private String smallPath;
+public class ImageNamesDTO {
+    private String fullName;
+    private String smallName;
 }

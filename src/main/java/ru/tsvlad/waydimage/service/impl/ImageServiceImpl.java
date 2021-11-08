@@ -5,38 +5,40 @@ import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.exif.ExifIFD0Directory;
+import io.minio.*;
+import io.minio.errors.*;
+import io.minio.http.Method;
+import lombok.RequiredArgsConstructor;
 import org.imgscalr.Scalr;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import ru.tsvlad.waydimage.config.props.ImageProperties;
 import ru.tsvlad.waydimage.config.security.JwtPayload;
 import ru.tsvlad.waydimage.restapi.controller.advise.exceptions.BadImageException;
 import ru.tsvlad.waydimage.restapi.controller.advise.exceptions.ServerException;
-import ru.tsvlad.waydimage.restapi.dto.ImagePathsDTO;
+import ru.tsvlad.waydimage.restapi.dto.ImageNamesDTO;
 import ru.tsvlad.waydimage.service.ImageService;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.nio.file.Path;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
+@RequiredArgsConstructor
 public class ImageServiceImpl implements ImageService {
 
-    @Value("${wayd.image.base-path}")
-    private String basePath;
-
-    @Value("${wayd.image.max-size}")
-    private int maxSize;
-
-    @Value("${wayd.image.small-max-size}")
-    private int smallMaxSize;
+    private final ImageProperties imageProperties;
+    private final MinioClient minioClient;
 
     @Override
-    public Flux<ImagePathsDTO> saveImages(Flux<FilePart> fileParts, JwtPayload userInfo) {
+    public Flux<ImageNamesDTO> saveImages(Flux<FilePart> fileParts, JwtPayload userInfo) {
         return fileParts.flatMap(fp -> fp.content()
                 .flatMap(buffer -> Flux.just(buffer.asByteBuffer().array()))
                 .collectList()
@@ -47,22 +49,29 @@ public class ImageServiceImpl implements ImageService {
                 }));
     }
 
+    @Override
+    public Mono<String> getImageUrl(String imageName) {
+        return Mono.just(getUrlFromMinio(imageName));
+    }
+
+    private String getUrlFromMinio(String objectName) {
+        try {
+            return minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+                    .method(Method.GET)
+                    .expiry(10, TimeUnit.MINUTES)
+                    .bucket(imageProperties.getBucket())
+                    .object(objectName)
+                    .build());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "";
+    }
+
     private byte[] byteArrayListToByteArray(List<byte[]> list) {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         list.forEach(byteArrayOutputStream::writeBytes);
         return byteArrayOutputStream.toByteArray();
-    }
-
-    private File createDirForUserIfNotExists(long userId) {
-        Path pathDir = Path.of(basePath, String.valueOf(userId));
-        File dir = new File(pathDir.toString());
-        if (!dir.exists()) {
-            boolean created = dir.mkdirs();
-            if (!created) {
-                throw new ServerException();
-            }
-        }
-        return dir;
     }
 
     private BufferedImage getImageFromBytes(byte[] bytes) {
@@ -92,7 +101,7 @@ public class ImageServiceImpl implements ImageService {
             image = rotateImageIfNeed(image, orientation);
         }
 
-        image = resizeImageIfNeed(image, maxSize);
+        image = resizeImageIfNeed(image, imageProperties.getMaxSize());
 
         return image;
     }
@@ -111,34 +120,39 @@ public class ImageServiceImpl implements ImageService {
         return image;
     }
 
-
-
-    private ImagePathsDTO saveImage(BufferedImage image, long userId) {
-        File dir = createDirForUserIfNotExists(userId);
+    private ImageNamesDTO saveImage(BufferedImage image, long userId) {
         String uuidName = UUID.randomUUID().toString();
-        Path fullPath = dir.toPath().resolve(uuidName + ".jpg");
-        Path smallPath = dir.toPath().resolve(uuidName + "-small.jpg");
+        String dir = "" + userId + "/";
+        String fullName = dir + uuidName + ".jpg";
+        String smallName = dir + uuidName + "-small.jpg";
 
-        writeImage(image, "jpg", fullPath.toFile());
-        writeImage(getSmallImage(image), "jpg", smallPath.toFile());
+        try {
+            saveInMinio(image, fullName);
+            saveInMinio(getSmallImage(image), smallName);
+        } catch (Exception e) {
+            throw new ServerException();
+        }
 
-        return ImagePathsDTO.builder()
-                .path(fullPath.toString())
-                .smallPath(smallPath.toString())
+        return ImageNamesDTO.builder()
+                .fullName(fullName)
+                .smallName(smallName)
                 .build();
     }
 
-    private void writeImage(BufferedImage image, String format, File file) {
-        try {
-            ImageIO.write(image, format, file);
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new ServerException();
-        }
+    private void saveInMinio(BufferedImage image, String name) throws Exception {
+        ByteArrayOutputStream os = new ByteArrayOutputStream();
+        ImageIO.write(image, "jpg", os);
+        InputStream is = new ByteArrayInputStream(os.toByteArray());
+        minioClient.putObject(PutObjectArgs.builder()
+                .bucket(imageProperties.getBucket())
+                .stream(is, -1, 10485760)
+                .contentType("image/jpg")
+                .object(name)
+                .build());
     }
 
     private BufferedImage getSmallImage(BufferedImage image) {
-        return resizeImageIfNeed(image, smallMaxSize);
+        return resizeImageIfNeed(image, imageProperties.getSmallMaxSize());
     }
 
     private BufferedImage resizeImageIfNeed(BufferedImage image, int maxSize) {
