@@ -10,6 +10,7 @@ import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.http.Method;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.imgscalr.Scalr;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
@@ -17,8 +18,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.tsvlad.waydimage.config.props.ImageProperties;
 import ru.tsvlad.waydimage.config.security.JwtPayload;
+import ru.tsvlad.waydimage.document.ImageDocument;
 import ru.tsvlad.waydimage.messaging.producer.ImageServiceProducer;
 import ru.tsvlad.waydimage.messaging.producer.msg.ImageMessage;
+import ru.tsvlad.waydimage.repository.ImageRepository;
 import ru.tsvlad.waydimage.restapi.controller.advise.exceptions.BadImageException;
 import ru.tsvlad.waydimage.restapi.controller.advise.exceptions.ServerException;
 import ru.tsvlad.waydimage.restapi.dto.ImageNamesDTO;
@@ -36,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ImageServiceImpl implements ImageService {
 
     private final ImageProperties imageProperties;
@@ -44,13 +48,15 @@ public class ImageServiceImpl implements ImageService {
 
     private final MinioClient minioClient;
 
+    private final ImageRepository imageRepository;
+
     @Override
-    public Flux<ImageNamesDTO> saveImages(Flux<FilePart> fileParts, JwtPayload userInfo) {
+    public Flux<ImageDocument> saveImages(Flux<FilePart> fileParts, JwtPayload userInfo) {
         return fileParts.flatMap(fp -> fp.content()
                 .flatMap(buffer -> Flux.just(buffer.asByteBuffer().array()))
                 .collectList()
                 .map(this::byteArrayListToByteArray)
-                .map(bytes -> {
+                .flatMap(bytes -> {
                     BufferedImage image = getImageFromBytes(bytes);
                     return saveImage(image, userInfo.getId());
                 }));
@@ -127,7 +133,7 @@ public class ImageServiceImpl implements ImageService {
         return image;
     }
 
-    private ImageNamesDTO saveImage(BufferedImage image, long userId) {
+    private Mono<ImageDocument> saveImage(BufferedImage image, long userId) {
         String uuidName = UUID.randomUUID().toString();
         String dir = "" + userId + "/";
         String fullName = dir + uuidName + ".jpg";
@@ -142,12 +148,26 @@ public class ImageServiceImpl implements ImageService {
             saveInMinio(image, fullName);
             saveInMinio(getSmallImage(image), smallName);
 
-            imageServiceProducer.newImage(getBytesFromBufferedImage(resizeImageIfNeed(image, 300)), fullName);
+            return saveInDb(fullName, smallName, userId)
+                    .doOnNext(img -> {
+                        try {
+                            imageServiceProducer.newImage(getBytesFromBufferedImage(resizeImageIfNeed(image, 300)), fullName);
+                        } catch (Exception e) {
+                            throw new ServerException(e);
+                        }
+                    })
+                    .onErrorMap(e -> {
+                        log.error("Error while saving image: {}", e.getMessage());
+                        return new ServerException("Server error");
+                    });
         } catch (Exception e) {
-            throw new ServerException();
+            log.error("Error while saving image: {}", e.getMessage());
+            return Mono.error(new ServerException("Server error"));
         }
+    }
 
-        return imageNamesDTO;
+    private Mono<ImageDocument> saveInDb(String name, String miniatureName, long userId) {
+        return imageRepository.save(ImageDocument.createNewImage(name, miniatureName, userId));
     }
 
     private void saveInMinio(BufferedImage image, String name) throws Exception {
