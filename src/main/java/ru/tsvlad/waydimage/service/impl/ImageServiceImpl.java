@@ -18,7 +18,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.tsvlad.waydimage.config.props.ImageProperties;
 import ru.tsvlad.waydimage.config.security.JwtPayload;
+import ru.tsvlad.waydimage.config.security.Role;
 import ru.tsvlad.waydimage.document.ImageDocument;
+import ru.tsvlad.waydimage.enums.ImageStatus;
 import ru.tsvlad.waydimage.messaging.producer.ImageServiceProducer;
 import ru.tsvlad.waydimage.messaging.producer.msg.ImageMessage;
 import ru.tsvlad.waydimage.repository.ImageRepository;
@@ -63,8 +65,14 @@ public class ImageServiceImpl implements ImageService {
     }
 
     @Override
-    public Mono<String> getImageUrl(String imageName) {
-        return Mono.just(getUrlFromMinio(imageName));
+    public Mono<String> getImageUrl(String id, boolean isMiniature, List<Role> userRoles) {
+        return imageRepository.findById(id)
+                .flatMap(imageDocument -> {
+                    if (imageDocument.getStatus() == ImageStatus.ACTIVE || userRoles.contains(Role.ROLE_MODERATOR)) {
+                        return Mono.just(getUrlFromMinio(isMiniature ? imageDocument.getMiniatureName() : imageDocument.getName()));
+                    }
+                    return Mono.empty();
+                });
     }
 
     private String getUrlFromMinio(String objectName) {

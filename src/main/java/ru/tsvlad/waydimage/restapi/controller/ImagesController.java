@@ -23,8 +23,8 @@ public class ImagesController {
         return imageService.saveImages(parts, userInfo).map(ImageDocument::getId);
     }
 
-    @GetMapping
-    public Mono<String> getImageUrl(@RequestParam("name") String name) {
-        return imageService.getImageUrl(name);
+    @GetMapping("/{id}")
+    public Mono<String> getImageUrl(@PathVariable String id, @RequestParam("miniature") boolean isMiniature, @AuthenticationPrincipal JwtPayload userInfo) {
+        return imageService.getImageUrl(id, isMiniature, userInfo.getRoles());
     }
 }

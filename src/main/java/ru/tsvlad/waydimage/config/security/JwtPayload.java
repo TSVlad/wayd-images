@@ -14,5 +14,5 @@ public class JwtPayload {
     private LocalDate dateOfBirth;
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate expiredAt;
-    private List<String> roles;
+    private List<Role> roles;
 }

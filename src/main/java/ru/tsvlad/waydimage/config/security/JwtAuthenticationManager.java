@@ -33,6 +33,7 @@ public class JwtAuthenticationManager implements ReactiveAuthenticationManager {
                         throw new RuntimeException(e);
                     }
                     List<SimpleGrantedAuthority> authorities = jwtPayload.getRoles().stream()
+                            .map(Enum::name)
                             .map(SimpleGrantedAuthority::new)
                             .collect(Collectors.toList());
                     Authentication auth = new UsernamePasswordAuthenticationToken(jwtPayload,
