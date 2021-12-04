@@ -41,4 +41,16 @@ public class ImageDocument {
                 .status(ImageStatus.ON_VALIDATION)
                 .build();
     }
+
+    public void validate(Validity validity) {
+        this.setValidity(validity);
+        switch (validity) {
+            case NOT_VALID:
+                this.setStatus(ImageStatus.BANNED);
+                break;
+            case VALID:
+                this.setStatus(ImageStatus.ON_MODERATION);
+                break;
+        }
+    }
 }

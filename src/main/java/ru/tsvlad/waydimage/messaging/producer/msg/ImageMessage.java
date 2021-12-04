@@ -10,6 +10,6 @@ import ru.tsvlad.waydimage.messaging.AbstractMessage;
 @SuperBuilder
 public class ImageMessage extends AbstractMessage {
     private ImageMessageType type;
-    private String imageName;
+    private String imageId;
     private byte[] image;
 }

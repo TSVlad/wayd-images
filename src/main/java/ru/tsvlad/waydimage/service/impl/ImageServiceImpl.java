@@ -21,6 +21,7 @@ import ru.tsvlad.waydimage.config.security.JwtPayload;
 import ru.tsvlad.waydimage.config.security.Role;
 import ru.tsvlad.waydimage.document.ImageDocument;
 import ru.tsvlad.waydimage.enums.ImageStatus;
+import ru.tsvlad.waydimage.messaging.consumer.msg.dto.Validity;
 import ru.tsvlad.waydimage.messaging.producer.ImageServiceProducer;
 import ru.tsvlad.waydimage.messaging.producer.msg.ImageMessage;
 import ru.tsvlad.waydimage.repository.ImageRepository;
@@ -73,6 +74,20 @@ public class ImageServiceImpl implements ImageService {
                     }
                     return Mono.empty();
                 });
+    }
+
+    @Override
+    public void updateImageValidity(String id, Validity validity) {
+        imageRepository.findById(id)
+                .flatMap(imageDocument -> {
+                    imageDocument.validate(validity);
+                    return imageRepository.save(imageDocument);
+                }).doOnNext(imageDocument -> {
+                    if (imageDocument.getValidity() == Validity.NOT_VALID) {
+                        imageServiceProducer.invalidImage(id);
+                    }
+                })
+                .subscribe();
     }
 
     private String getUrlFromMinio(String objectName) {
@@ -159,7 +174,7 @@ public class ImageServiceImpl implements ImageService {
             return saveInDb(fullName, smallName, userId)
                     .doOnNext(img -> {
                         try {
-                            imageServiceProducer.newImage(getBytesFromBufferedImage(resizeImageIfNeed(image, 300)), fullName);
+                            imageServiceProducer.newImage(getBytesFromBufferedImage(resizeImageIfNeed(image, 300)), img.getId());
                         } catch (Exception e) {
                             throw new ServerException(e);
                         }

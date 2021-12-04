@@ -11,11 +11,18 @@ import ru.tsvlad.waydimage.messaging.producer.msg.ImageMessageType;
 public class ImageServiceProducer {
     private final KafkaTemplate<Long, ImageMessage> kafkaTemplate;
 
-    public void newImage(byte[] image, String imageName) {
+    public void newImage(byte[] image, String imageId) {
         send(ImageMessage.builder()
                 .type(ImageMessageType.NEW_IMAGE)
                 .image(image)
-                .imageName(imageName)
+                .imageId(imageId)
+                .build());
+    }
+
+    public void invalidImage(String id) {
+        send(ImageMessage.builder()
+                .type(ImageMessageType.INVALID_IMAGE)
+                .imageId(id)
                 .build());
     }
 
