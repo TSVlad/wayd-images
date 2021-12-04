@@ -24,9 +24,9 @@ jwt:
 wayd:
   kafka:
     address: localhost:9092
-    groupId: event
+    groupId: image
     producer:
-      id: event-producer
+      id: image-producer
   image:
     bucket: images
     max-size: 1000

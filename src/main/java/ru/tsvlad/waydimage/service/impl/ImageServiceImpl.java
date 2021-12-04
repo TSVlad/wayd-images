@@ -5,8 +5,9 @@ import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.exif.ExifIFD0Directory;
-import io.minio.*;
-import io.minio.errors.*;
+import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
 import io.minio.http.Method;
 import lombok.RequiredArgsConstructor;
 import org.imgscalr.Scalr;
@@ -16,6 +17,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.tsvlad.waydimage.config.props.ImageProperties;
 import ru.tsvlad.waydimage.config.security.JwtPayload;
+import ru.tsvlad.waydimage.messaging.producer.ImageServiceProducer;
+import ru.tsvlad.waydimage.messaging.producer.msg.ImageMessage;
 import ru.tsvlad.waydimage.restapi.controller.advise.exceptions.BadImageException;
 import ru.tsvlad.waydimage.restapi.controller.advise.exceptions.ServerException;
 import ru.tsvlad.waydimage.restapi.dto.ImageNamesDTO;
@@ -23,9 +26,10 @@ import ru.tsvlad.waydimage.service.ImageService;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.*;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +39,9 @@ import java.util.concurrent.TimeUnit;
 public class ImageServiceImpl implements ImageService {
 
     private final ImageProperties imageProperties;
+
+    private final ImageServiceProducer imageServiceProducer;
+
     private final MinioClient minioClient;
 
     @Override
@@ -43,7 +50,7 @@ public class ImageServiceImpl implements ImageService {
                 .flatMap(buffer -> Flux.just(buffer.asByteBuffer().array()))
                 .collectList()
                 .map(this::byteArrayListToByteArray)
-                .map(bytes ->  {
+                .map(bytes -> {
                     BufferedImage image = getImageFromBytes(bytes);
                     return saveImage(image, userInfo.getId());
                 }));
@@ -90,7 +97,7 @@ public class ImageServiceImpl implements ImageService {
         Metadata metadata = ImageMetadataReader.readMetadata(imageInputStream);
 
         imageInputStream.reset();
-        BufferedImage image  = ImageIO.read(imageInputStream);
+        BufferedImage image = ImageIO.read(imageInputStream);
 
         ExifIFD0Directory exifIFD0 = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
         if (exifIFD0 != null) {
@@ -126,17 +133,21 @@ public class ImageServiceImpl implements ImageService {
         String fullName = dir + uuidName + ".jpg";
         String smallName = dir + uuidName + "-small.jpg";
 
+        ImageNamesDTO imageNamesDTO = ImageNamesDTO.builder()
+                .fullName(fullName)
+                .smallName(smallName)
+                .build();
+
         try {
             saveInMinio(image, fullName);
             saveInMinio(getSmallImage(image), smallName);
+
+            imageServiceProducer.newImage(getBytesFromBufferedImage(resizeImageIfNeed(image, 300)), fullName);
         } catch (Exception e) {
             throw new ServerException();
         }
 
-        return ImageNamesDTO.builder()
-                .fullName(fullName)
-                .smallName(smallName)
-                .build();
+        return imageNamesDTO;
     }
 
     private void saveInMinio(BufferedImage image, String name) throws Exception {
@@ -151,17 +162,23 @@ public class ImageServiceImpl implements ImageService {
                 .build());
     }
 
+    private byte[] getBytesFromBufferedImage(BufferedImage image) throws Exception{
+        ByteArrayOutputStream os = new ByteArrayOutputStream();
+        ImageIO.write(image, "jpg", os);
+        return os.toByteArray();
+    }
+
     private BufferedImage getSmallImage(BufferedImage image) {
         return resizeImageIfNeed(image, imageProperties.getSmallMaxSize());
     }
 
     private BufferedImage resizeImageIfNeed(BufferedImage image, int maxSize) {
-        double yScale = (maxSize + 0.0)/image.getHeight();
-        double xScale = (maxSize + 0.0)/image.getWidth();
+        double yScale = (maxSize + 0.0) / image.getHeight();
+        double xScale = (maxSize + 0.0) / image.getWidth();
 
         double scale = Math.min(xScale, yScale);
         if (scale < 1) {
-            return Scalr.resize(image, (int)(image.getWidth() * scale), (int)(image.getHeight() * scale));
+            return Scalr.resize(image, (int) (image.getWidth() * scale), (int) (image.getHeight() * scale));
         }
         return image;
     }
