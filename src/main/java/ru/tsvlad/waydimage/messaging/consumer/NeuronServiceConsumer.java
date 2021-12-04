@@ -18,7 +18,8 @@ public class NeuronServiceConsumer {
     public void consume(NeuronValidatorMessage message) {
         switch (message.getType()) {
             case IMAGE_VALIDATED:
-
+                imageService.updateImageValidity(message.getImageId(), message.getValidity());
+                break;
         }
     }
 }

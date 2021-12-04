@@ -46,10 +46,10 @@ public class ImageDocument {
         this.setValidity(validity);
         switch (validity) {
             case NOT_VALID:
-                this.setStatus(ImageStatus.BANNED);
+                this.setStatus(ImageStatus.ON_MODERATION);
                 break;
             case VALID:
-                this.setStatus(ImageStatus.ON_MODERATION);
+                this.setStatus(ImageStatus.ACTIVE);
                 break;
         }
     }
