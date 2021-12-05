@@ -9,6 +9,7 @@ import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import ru.tsvlad.waydimage.enums.ImageStatus;
+import ru.tsvlad.waydimage.messaging.consumer.msg.dto.ModeratorDecision;
 import ru.tsvlad.waydimage.messaging.consumer.msg.dto.Validity;
 
 @Document(collection = "images")
@@ -46,10 +47,21 @@ public class ImageDocument {
         this.setValidity(validity);
         switch (validity) {
             case NOT_VALID:
-                this.setStatus(ImageStatus.ON_MODERATION);
+                this.status = ImageStatus.ON_MODERATION;
                 break;
             case VALID:
-                this.setStatus(ImageStatus.ACTIVE);
+                this.status = ImageStatus.ACTIVE;
+                break;
+        }
+    }
+
+    public void moderate(ModeratorDecision decision) {
+        switch (decision) {
+            case REJECT:
+                this.status = ImageStatus.BANNED;
+                break;
+            case APPROVE:
+                this.status = ImageStatus.ACTIVE;
                 break;
         }
     }

@@ -2,6 +2,7 @@ package ru.tsvlad.waydimage.config;
 
 import io.minio.MinioClient;
 import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import ru.tsvlad.waydimage.config.props.MinioProperties;
@@ -18,5 +19,10 @@ public class AppConfig {
                 .endpoint(minioProperties.getHost())
                 .credentials(minioProperties.getUsername(), minioProperties.getPassword())
                 .build();
+    }
+
+    @Bean
+    ModelMapper modelMapper() {
+        return new ModelMapper();
     }
 }

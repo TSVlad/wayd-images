@@ -21,6 +21,7 @@ import ru.tsvlad.waydimage.config.security.JwtPayload;
 import ru.tsvlad.waydimage.config.security.Role;
 import ru.tsvlad.waydimage.document.ImageDocument;
 import ru.tsvlad.waydimage.enums.ImageStatus;
+import ru.tsvlad.waydimage.messaging.consumer.msg.dto.ModeratorDecision;
 import ru.tsvlad.waydimage.messaging.consumer.msg.dto.Validity;
 import ru.tsvlad.waydimage.messaging.producer.ImageServiceProducer;
 import ru.tsvlad.waydimage.messaging.producer.msg.ImageMessage;
@@ -84,10 +85,18 @@ public class ImageServiceImpl implements ImageService {
                     return imageRepository.save(imageDocument);
                 }).doOnNext(imageDocument -> {
                     if (imageDocument.getValidity() == Validity.NOT_VALID) {
-                        imageServiceProducer.invalidImage(id);
+                        imageServiceProducer.invalidImage(imageDocument);
                     }
                 })
                 .subscribe();
+    }
+
+    @Override
+    public void moderateImage(String id, ModeratorDecision decision) {
+        imageRepository.findById(id).doOnNext(imageDocument -> {
+            imageDocument.moderate(decision);
+            imageRepository.save(imageDocument).subscribe();
+        }).subscribe();
     }
 
     private String getUrlFromMinio(String objectName) {
@@ -174,7 +183,7 @@ public class ImageServiceImpl implements ImageService {
             return saveInDb(fullName, smallName, userId)
                     .doOnNext(img -> {
                         try {
-                            imageServiceProducer.newImage(getBytesFromBufferedImage(resizeImageIfNeed(image, 300)), img.getId());
+                            imageServiceProducer.newImage(getBytesFromBufferedImage(resizeImageIfNeed(image, 300)), img);
                         } catch (Exception e) {
                             throw new ServerException(e);
                         }
