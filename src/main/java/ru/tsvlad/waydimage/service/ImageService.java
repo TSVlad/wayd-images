@@ -13,7 +13,8 @@ import java.util.List;
 
 public interface ImageService {
     Flux<ImageDocument> saveImages(Flux<FilePart> fileParts, JwtPayload userInfo);
-    Mono<String> getImageUrl(String id, boolean isMiniature, List<Role> userRoles);
+    Flux<String> getImageUrls(List<String> ids, boolean isMiniature, List<Role> userRoles, long userId);
+    Mono<String> getImageUrl(String id, boolean isMiniature, List<Role> userRoles, long userId);
     void updateImageValidity(String id, Validity validity);
     void moderateImage(String id, ModeratorDecision decision);
 }

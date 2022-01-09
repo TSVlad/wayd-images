@@ -67,10 +67,21 @@ public class ImageServiceImpl implements ImageService {
     }
 
     @Override
-    public Mono<String> getImageUrl(String id, boolean isMiniature, List<Role> userRoles) {
+    public Flux<String> getImageUrls(List<String> ids, boolean isMiniature, List<Role> userRoles, long userId) {
+        Flux<String> result = Flux.empty();
+        for (String id : ids) {
+            result = Flux.concat(result, getImageUrl(id, isMiniature, userRoles, userId));
+        }
+        return result;
+    }
+
+
+    @Override
+    public Mono<String> getImageUrl(String id, boolean isMiniature, List<Role> userRoles, long userId) {
         return imageRepository.findById(id)
                 .flatMap(imageDocument -> {
-                    if (imageDocument.getStatus() == ImageStatus.ACTIVE || userRoles.contains(Role.ROLE_MODERATOR)) {
+                    if (imageDocument.getStatus() == ImageStatus.ACTIVE || userRoles.contains(Role.ROLE_MODERATOR)
+                            || imageDocument.getOwnerId() == userId) {
                         return Mono.just(getUrlFromMinio(isMiniature ? imageDocument.getMiniatureName() : imageDocument.getName()));
                     }
                     return Mono.empty();
