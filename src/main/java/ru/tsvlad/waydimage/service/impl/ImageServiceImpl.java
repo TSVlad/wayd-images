@@ -16,6 +16,7 @@ import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import ru.tsvlad.waydimage.commons.ImageIdToUrl;
 import ru.tsvlad.waydimage.config.props.ImageProperties;
 import ru.tsvlad.waydimage.config.security.JwtPayload;
 import ru.tsvlad.waydimage.config.security.Role;
@@ -67,8 +68,8 @@ public class ImageServiceImpl implements ImageService {
     }
 
     @Override
-    public Flux<String> getImageUrls(List<String> ids, boolean isMiniature, List<Role> userRoles, long userId) {
-        Flux<String> result = Flux.empty();
+    public Flux<ImageIdToUrl> getImageUrls(List<String> ids, boolean isMiniature, List<Role> userRoles, long userId) {
+        Flux<ImageIdToUrl> result = Flux.empty();
         for (String id : ids) {
             result = Flux.concat(result, getImageUrl(id, isMiniature, userRoles, userId));
         }
@@ -77,12 +78,16 @@ public class ImageServiceImpl implements ImageService {
 
 
     @Override
-    public Mono<String> getImageUrl(String id, boolean isMiniature, List<Role> userRoles, long userId) {
+    public Mono<ImageIdToUrl> getImageUrl(String id, boolean isMiniature, List<Role> userRoles, long userId) {
         return imageRepository.findById(id)
                 .flatMap(imageDocument -> {
                     if (imageDocument.getStatus() == ImageStatus.ACTIVE || userRoles.contains(Role.ROLE_MODERATOR)
                             || imageDocument.getOwnerId() == userId) {
-                        return Mono.just(getUrlFromMinio(isMiniature ? imageDocument.getMiniatureName() : imageDocument.getName()));
+                        return Mono.just(ImageIdToUrl.builder()
+                                        .id(id)
+                                        .url(getUrlFromMinio(isMiniature ? imageDocument.getMiniatureName() : imageDocument.getName()))
+                                .build());
+
                     }
                     return Mono.empty();
                 });
