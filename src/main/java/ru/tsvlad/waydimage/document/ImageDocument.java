@@ -31,9 +31,9 @@ public class ImageDocument {
     private Validity validity;
     private ImageStatus status;
 
-    private long ownerId;
+    private String ownerId;
 
-    public static ImageDocument createNewImage(String name, String miniatureName, long ownerId) {
+    public static ImageDocument createNewImage(String name, String miniatureName, String ownerId) {
         return ImageDocument.builder()
                 .name(name)
                 .miniatureName(miniatureName)

@@ -17,15 +17,14 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.tsvlad.waydimage.commons.ImageIdToUrl;
+import ru.tsvlad.waydimage.commons.UserInfo;
 import ru.tsvlad.waydimage.config.props.ImageProperties;
-import ru.tsvlad.waydimage.config.security.JwtPayload;
 import ru.tsvlad.waydimage.config.security.Role;
 import ru.tsvlad.waydimage.document.ImageDocument;
 import ru.tsvlad.waydimage.enums.ImageStatus;
 import ru.tsvlad.waydimage.messaging.consumer.msg.dto.ModeratorDecision;
 import ru.tsvlad.waydimage.messaging.consumer.msg.dto.Validity;
 import ru.tsvlad.waydimage.messaging.producer.ImageServiceProducer;
-import ru.tsvlad.waydimage.messaging.producer.msg.ImageMessage;
 import ru.tsvlad.waydimage.repository.ImageRepository;
 import ru.tsvlad.waydimage.restapi.controller.advise.exceptions.BadImageException;
 import ru.tsvlad.waydimage.restapi.controller.advise.exceptions.ServerException;
@@ -56,7 +55,7 @@ public class ImageServiceImpl implements ImageService {
     private final ImageRepository imageRepository;
 
     @Override
-    public Flux<ImageDocument> saveImages(Flux<FilePart> fileParts, JwtPayload userInfo) {
+    public Flux<ImageDocument> saveImages(Flux<FilePart> fileParts, UserInfo userInfo) {
         return fileParts.flatMap(fp -> fp.content()
                 .flatMap(buffer -> Flux.just(buffer.asByteBuffer().array()))
                 .collectList()
@@ -68,7 +67,7 @@ public class ImageServiceImpl implements ImageService {
     }
 
     @Override
-    public Flux<ImageIdToUrl> getImageUrls(List<String> ids, boolean isMiniature, List<Role> userRoles, long userId) {
+    public Flux<ImageIdToUrl> getImageUrls(List<String> ids, boolean isMiniature, List<Role> userRoles, String userId) {
         Flux<ImageIdToUrl> result = Flux.empty();
         for (String id : ids) {
             result = Flux.concat(result, getImageUrl(id, isMiniature, userRoles, userId));
@@ -78,11 +77,11 @@ public class ImageServiceImpl implements ImageService {
 
 
     @Override
-    public Mono<ImageIdToUrl> getImageUrl(String id, boolean isMiniature, List<Role> userRoles, long userId) {
+    public Mono<ImageIdToUrl> getImageUrl(String id, boolean isMiniature, List<Role> userRoles, String userId) {
         return imageRepository.findById(id)
                 .flatMap(imageDocument -> {
                     if (imageDocument.getStatus() == ImageStatus.ACTIVE || userRoles.contains(Role.ROLE_MODERATOR)
-                            || imageDocument.getOwnerId() == userId) {
+                            || imageDocument.getOwnerId().equals(userId)) {
                         return Mono.just(ImageIdToUrl.builder()
                                         .id(id)
                                         .url(getUrlFromMinio(isMiniature ? imageDocument.getMiniatureName() : imageDocument.getName()))
@@ -181,7 +180,7 @@ public class ImageServiceImpl implements ImageService {
         return image;
     }
 
-    private Mono<ImageDocument> saveImage(BufferedImage image, long userId) {
+    private Mono<ImageDocument> saveImage(BufferedImage image, String userId) {
         String uuidName = UUID.randomUUID().toString();
         String dir = "" + userId + "/";
         String fullName = dir + uuidName + ".jpg";
@@ -214,7 +213,7 @@ public class ImageServiceImpl implements ImageService {
         }
     }
 
-    private Mono<ImageDocument> saveInDb(String name, String miniatureName, long userId) {
+    private Mono<ImageDocument> saveInDb(String name, String miniatureName, String userId) {
         return imageRepository.save(ImageDocument.createNewImage(name, miniatureName, userId));
     }
 
