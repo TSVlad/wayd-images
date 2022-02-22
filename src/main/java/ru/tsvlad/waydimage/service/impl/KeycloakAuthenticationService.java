@@ -20,10 +20,10 @@ public class KeycloakAuthenticationService implements AuthenticationService {
 
     @Override
     public UserInfo getUserInfo(Authentication authentication) {
+        Object dateOfBirth = ((JwtAuthenticationToken) authentication).getTokenAttributes().get("dateOfBirth");
         return UserInfo.builder()
                 .id(authentication.getName())
-                .username(((UserDetails)authentication.getPrincipal()).getUsername())
-                .dateOfBirth(LocalDate.parse((String)((JwtAuthenticationToken)authentication).getTokenAttributes().get("dateOfBirth")))
+                .dateOfBirth(dateOfBirth != null ? LocalDate.parse((String)dateOfBirth) : null)
                 .roles(authentication.getAuthorities().stream().filter(role -> {
                     try {
                         Role.valueOf(role.getAuthority());
