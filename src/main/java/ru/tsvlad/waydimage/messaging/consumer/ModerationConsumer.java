@@ -16,8 +16,9 @@ public class ModerationConsumer {
     @KafkaListener(topics = {"moderation-to-image"}, containerFactory = "singleFactory")
     public void consume(ModerationMessage message) {
         switch (message.getType()) {
-            case IMAGE_MODERATION_DECISION:
-                imageService.moderateImage(message.getImageId(), message.getDecision());
+            case BLOCK_IMAGE:
+                imageService.blockImage(message.getObjectId()).subscribe();
+                break;
         }
     }
 }

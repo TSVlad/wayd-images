@@ -13,6 +13,6 @@ import ru.tsvlad.waydimage.messaging.consumer.msg.type.ModerationMessageType;
 public class ModerationMessage extends AbstractMessage {
     private ModerationMessageType type;
 
-    private String imageId;
+    private String objectId;
     private ModeratorDecision decision;
 }

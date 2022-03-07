@@ -4,5 +4,6 @@ public enum ImageStatus {
     ON_VALIDATION,
     ON_MODERATION,
     ACTIVE,
-    BANNED
+    BANNED,
+    BLOCKED_BY_MODERATOR
 }

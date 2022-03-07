@@ -17,5 +17,5 @@ public interface ImageService {
     Flux<ImageIdToUrl> getImageUrls(List<String> ids, boolean isMiniature, List<Role> userRoles, String userId);
     Mono<ImageIdToUrl> getImageUrl(String id, boolean isMiniature, List<Role> userRoles, String userId);
     void updateImageValidity(String id, Validity validity);
-    void moderateImage(String id, ModeratorDecision decision);
+    Mono<ImageDocument> blockImage(String imageId);
 }

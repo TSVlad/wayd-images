@@ -107,11 +107,12 @@ public class ImageServiceImpl implements ImageService {
     }
 
     @Override
-    public void moderateImage(String id, ModeratorDecision decision) {
-        imageRepository.findById(id).doOnNext(imageDocument -> {
-            imageDocument.moderate(decision);
-            imageRepository.save(imageDocument).subscribe();
-        }).subscribe();
+    public Mono<ImageDocument> blockImage(String imageId) {
+        return imageRepository.findById(imageId)
+                .flatMap(imageDocument -> {
+                    imageDocument.setStatus(ImageStatus.BLOCKED_BY_MODERATOR);
+                    return imageRepository.save(imageDocument);
+                });
     }
 
     private String getUrlFromMinio(String objectName) {
