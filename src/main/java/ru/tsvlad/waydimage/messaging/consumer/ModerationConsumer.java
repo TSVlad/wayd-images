@@ -15,6 +15,7 @@ public class ModerationConsumer {
 
     @KafkaListener(topics = {"moderation-to-image"}, containerFactory = "singleFactory")
     public void consume(ModerationMessage message) {
+        log.debug("Message gotten from moderation service {}", message);
         switch (message.getType()) {
             case BLOCK_IMAGE:
                 imageService.blockImage(message.getObjectId()).subscribe();

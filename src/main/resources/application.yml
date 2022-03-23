@@ -19,7 +19,7 @@ spring:
   data:
     mongodb:
       auto-index-creation: true
-      uri: mongodb://localhost:27017/wayd-image
+      uri: mongodb://localhost:27022/wayd-image
   security:
     oauth2:
       resourceserver:
