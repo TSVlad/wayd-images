@@ -32,7 +32,7 @@
                 <pattern>%m%n</pattern>
             </fullPatternLayout>
             <numbersAsString>false</numbersAsString>
-            <staticField>app_name:wayd-user</staticField>
+            <staticField>app_name:wayd-images</staticField>
         </encoder>
     </appender>
 
